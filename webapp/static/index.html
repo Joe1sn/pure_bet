@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>明日上涨概率 · Stock Predictor</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --card: #171b2e;
+    --card2: #1e2340;
+    --border: #2a3052;
+    --text: #e6e9f5;
+    --muted: #8b92b5;
+    --accent: #6c8cff;
+    --up: #ff5f6d;
+    --down: #22d3a3;
+    --flat: #d6c46a;
+    --ok: #22d3a3;
+    --err: #ff5f6d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #232a4d 0%, transparent 60%),
+                var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 24px; letter-spacing: .5px; }
+  header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: var(--accent); font-weight: 600; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .field { flex: 1 1 140px; display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  input, select {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    border: none; color: #fff;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity .15s;
+  }
+  button:hover { opacity: .9; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .status { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  /* 结果 */
+  .result-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .result-head .sym { font-size: 18px; font-weight: 700; }
+  .result-head .meta { color: var(--muted); font-size: 13px; }
+  .badge {
+    padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    color: #0f1220;
+  }
+  .badge.up { background: var(--up); }
+  .badge.down { background: var(--down); }
+  .badge.flat { background: var(--flat); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  .stat { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .bar-row { margin-top: 16px; }
+  .bar-row .lbl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .bar-row .lbl b { color: var(--muted); font-weight: 600; }
+  .bar { height: 10px; border-radius: 6px; background: var(--card2); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 6px; }
+  .bar.up > span { background: var(--up); }
+  .bar.down > span { background: var(--down); }
+  .bar.flat > span { background: var(--flat); }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  .noul { font-size: 26px; font-weight: 800; }
+  .hidden { display: none; }
+  .spinner {
+    display: inline-block; width: 13px; height: 13px; margin-right: 6px;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📈 明日上涨概率预测</h1>
+    <p>同花顺行情数据 × jev(System One) 模型判断 · 仅供研究参考，非投资建议</p>
+  </header>
+
+  <!-- 登录 -->
+  <div class="card" id="loginCard">
+    <h2>🔐 登录</h2>
+    <div class="row">
+      <div class="field">
+        <label>用户名</label>
+        <input id="username" value="admin" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="password" type="password" value="admin123" autocomplete="current-password" />
+      </div>
+      <button id="loginBtn">登录</button>
+    </div>
+    <div class="status" id="loginStatus"></div>
+  </div>
+
+  <!-- 查询 -->
+  <div class="card" id="queryCard">
+    <h2>🔍 预测下一交易日上涨概率</h2>
+    <div class="row">
+      <div class="field" style="flex:2 1 220px">
+        <label>股票代码 / 名称（如 600519 或 贵州茅台）</label>
+        <input id="q" placeholder="600519" />
+      </div>
+      <div class="field">
+        <label>取数天数</label>
+        <select id="days">
+          <option value="30" selected>30（约1个月）</option>
+          <option value="60">60</option>
+          <option value="90">90</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>复权</label>
+        <select id="adjust">
+          <option value="forward" selected>前复权</option>
+          <option value="none">不复权</option>
+          <option value="backward">后复权</option>
+        </select>
+      </div>
+      <button id="predictBtn">预测</button>
+    </div>
+    <div class="status" id="queryStatus"></div>
+  </div>
+
+  <!-- 结果 -->
+  <div class="card hidden" id="resultCard">
+    <div class="result-head">
+      <span class="sym" id="rSym">--</span>
+      <span class="meta" id="rMeta"></span>
+      <span class="badge" id="rBadge" style="margin-left:auto"></span>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="k">模型</div><div class="v" id="rModel" style="font-size:16px">--</div></div>
+      <div class="stat"><div class="k">置信度</div><div class="v" id="rConf">--</div></div>
+      <div class="stat"><div class="k">明日上涨概率 (noul)</div><div class="v noul" id="rNoul">--</div></div>
+    </div>
+    <div class="bar-row">
+      <div class="lbl"><span><b>上涨</b></span><span id="pUpTxt">--</span></div>
+      <div class="bar up"><span id="pUpBar" style="width:0%"></span></div>
+    </div>
+    <div class="bar-row">
+      <div class="lbl"><span><b>下跌</b></span><span id="pDownTxt">--</span></div>
+      <div class="bar down"><span id="pDownBar" style="width:0%"></span></div>
+    </div>
+    <div class="bar-row">
+      <div class="lbl"><span><b>平盘</b></span><span id="pFlatTxt">--</span></div>
+      <div class="bar flat"><span id="pFlatBar" style="width:0%"></span></div>
+    </div>
+    <div class="foot" id="rFoot"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const TOKEN_KEY = "stock_token";
+let token = localStorage.getItem(TOKEN_KEY) || null;
+
+function setStatus(el, msg, cls) {
+  el.textContent = msg || "";
+  el.className = "status " + (cls || "");
+}
+function setBtn(btn, busy, text) {
+  btn.disabled = busy;
+  btn.innerHTML = busy ? `<span class="spinner"></span>${text}` : text;
+}
+
+async function api(path, opts = {}) {
+  const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  if (res.status === 401) {
+    token = null; localStorage.removeItem(TOKEN_KEY);
+    $("queryCard").classList.add("hidden");
+    setStatus($("loginStatus"), "会话已过期，请重新登录", "err");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+  return data;
+}
+
+function applyAuth() {
+  $("queryCard").classList.toggle("hidden", !token);
+  if (token) setStatus($("loginStatus"), "✅ 已登录（token 已保存到本地）", "ok");
+}
+
+$("loginBtn").addEventListener("click", async () => {
+  const btn = $("loginBtn");
+  setBtn(btn, true, "登录中…");
+  setStatus($("loginStatus"), "");
+  try {
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username: $("username").value, password: $("password").value }),
+    });
+    token = data.access_token;
+    localStorage.setItem(TOKEN_KEY, token);
+    applyAuth();
+    setStatus($("loginStatus"), "✅ 登录成功", "ok");
+  } catch (e) {
+    setStatus($("loginStatus"), "❌ " + e.message, "err");
+  } finally {
+    setBtn(btn, false, "登录");
+  }
+});
+
+$("predictBtn").addEventListener("click", async () => {
+  const btn = $("predictBtn");
+  const q = $("q").value.trim();
+  if (!q) { setStatus($("queryStatus"), "请输入股票代码或名称", "err"); return; }
+  setBtn(btn, true, "预测中…");
+  setStatus($("queryStatus"), "");
+  try {
+    const params = new URLSearchParams({ q, days: $("days").value, adjust: $("adjust").value });
+    const d = await api("/predict?" + params.toString());
+    render(d);
+  } catch (e) {
+    setStatus($("queryStatus"), "❌ " + e.message, "err");
+  } finally {
+    setBtn(btn, false, "预测");
+  }
+});
+
+function pct(x) { return (x == null) ? "--" : (x * 100).toFixed(1) + "%"; }
+
+function render(d) {
+  const p = d.probabilities || {};
+  $("resultCard").classList.remove("hidden");
+  $("rSym").textContent = (d.symbol || "--") + " " + (d.name || "");
+  $("rMeta").textContent = `数据 ${d.data_window?.start} ~ ${d.data_window?.end} · ${d.data_window?.trading_days} 个交易日`;
+  const dir = d.direction || "flat";
+  const badge = $("rBadge");
+  badge.className = "badge " + dir;
+  badge.textContent = dir === "up" ? "看涨" : dir === "down" ? "看跌" : "平盘";
+  $("rModel").textContent = d.model || "--";
+  $("rConf").textContent = d.confidence != null ? (d.confidence * 100).toFixed(0) + "%" : "--";
+  $("rNoul").textContent = d.rise_prob_noul != null ? d.rise_prob_noul.toFixed(2) : "--";
+
+  $("pUpTxt").textContent = pct(p.up);
+  $("pUpBar").style.width = Math.round((p.up || 0) * 100) + "%";
+  $("pDownTxt").textContent = pct(p.down);
+  $("pDownBar").style.width = Math.round((p.down || 0) * 100) + "%";
+  $("pFlatTxt").textContent = pct(p.flat);
+  $("pFlatBar").style.width = Math.round((p.flat || 0) * 100) + "%";
+
+  $("rFoot").textContent = d.disclaimer || "仅供研究参考，非投资建议";
+  $("queryStatus").textContent = "";
+}
+
+applyAuth();
+// 回车触发对应按钮
+$("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") $("predictBtn").click(); });
+</script>
+</body>
+</html>
